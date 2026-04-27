@@ -33,15 +33,17 @@ This file tracks the status of all 200 phases from ROADMAP-002.md. Each phase ha
 ⏸️ Phase 15: Load Testing Setup
 
 ## Phase 16-30: Core Services Foundation
-✅ Phase 16: NestJS API Gateway Foundation
+✅ Phase 16: NestJS API Gateway Foundation (LoC: +148)
 - Basic NestJS app created in apps/api-gateway
 - Health endpoint implemented
 - Authentication integration complete
 
-✅ Phase 17: Authentication Service Core
+✅ Phase 17: Authentication Service Core (LoC: +134)
 - Supabase Auth integration implemented
 - JWT guards and protected routes added
 - ConfigModule for environment variables
+
+**Cumulative LoC: 282**
 ⏸️ Phase 18: Multi-Tenant Middleware
 ⏸️ Phase 19: Database Schema & Migrations
 ⏸️ Phase 20: User Management Service
