@@ -8,8 +8,10 @@
   ],
   "scripts": {
     "dev": "bun run --filter=@beie/web-public dev",
+    "dev:api": "bun run --filter=@beie/api-gateway start:dev",
     "build": "bun run build:ui && bun run --filter=@beie/web-public build",
     "build:ui": "bun run --filter=@beie/ui build",
+    "build:api": "bun run --filter=@beie/api-gateway build",
     "lint": "bun run --filter=* lint",
     "typecheck": "bun run --filter=* typecheck",
     "install:all": "bun install"
