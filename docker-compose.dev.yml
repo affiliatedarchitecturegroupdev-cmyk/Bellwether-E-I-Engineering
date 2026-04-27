@@ -1,0 +1,212 @@
+version: '3.9'
+
+services:
+  # =============================================================================
+  # DATABASES
+  # =============================================================================
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: beie-postgres
+    environment:
+      POSTGRES_DB: beie_nexus
+      POSTGRES_USER: beie
+      POSTGRES_PASSWORD: beie_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./infrastructure/docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U beie -d beie_nexus"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  mongodb:
+    image: mongo:7-jammy
+    container_name: beie-mongodb
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: beie
+      MONGO_INITDB_ROOT_PASSWORD: beie_password
+      MONGO_INITDB_DATABASE: beie_catalogue
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+      - ./infrastructure/docker/mongodb/init.js:/docker-entrypoint-initdb.d/init.js
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: beie-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # =============================================================================
+  # MESSAGE QUEUES
+  # =============================================================================
+
+  kafka:
+    image: confluentinc/cp-kafka:7.6.0
+    container_name: beie-kafka
+    ports:
+      - "9092:9092"
+      - "9093:9093"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:29092,PLAINTEXT_HOST://0.0.0.0:9092
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_NUM_PARTITIONS: 3
+      KAFKA_DEFAULT_REPLICATION_FACTOR: 1
+    depends_on:
+      - zookeeper
+    healthcheck:
+      test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "localhost:9092"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.6.0
+    container_name: beie-zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: beie-kafka-ui
+    ports:
+      - "8080:8080"
+    environment:
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29092
+      KAFKA_CLUSTERS_0_NAME: local
+    depends_on:
+      - kafka
+
+  # =============================================================================
+  # DEVELOPMENT TOOLS
+  # =============================================================================
+
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: beie-mailhog
+    ports:
+      - "1025:1025"  # SMTP server
+      - "8025:8025"  # Web UI
+    environment:
+      MH_STORAGE: maildir
+      MH_MAILDIR_PATH: /tmp/mailhog
+
+  minio:
+    image: minio/minio:latest
+    container_name: beie-minio
+    ports:
+      - "9000:9000"  # API
+      - "9001:9001"  # Console
+    environment:
+      MINIO_ROOT_USER: beie_minio
+      MINIO_ROOT_PASSWORD: beie_minio_password
+    volumes:
+      - minio_data:/data
+    command: server /data --console-address ":9001"
+
+  # =============================================================================
+  # MONITORING & LOGGING
+  # =============================================================================
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: beie-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./infrastructure/docker/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: beie-grafana
+    ports:
+      - "3003:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./infrastructure/docker/grafana/provisioning:/etc/grafana/provisioning
+    depends_on:
+      - prometheus
+
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    container_name: beie-jaeger
+    ports:
+      - "16686:16686"  # UI
+      - "14268:14268"  # Accept jaeger.thrift over HTTP
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"
+
+  # =============================================================================
+  # APPLICATION SERVICES
+  # =============================================================================
+
+  # Note: These would be built from the monorepo packages
+  # For development, run services locally with hot reload
+
+  # api-gateway:
+  #   build:
+  #     context: .
+  #     dockerfile: ./apps/api-gateway/Dockerfile
+  #   ports:
+  #     - "3001:3000"
+  #   environment:
+  #     - NODE_ENV=development
+  #   depends_on:
+  #     - postgres
+  #     - redis
+  #     - kafka
+
+  # web-public:
+  #   build:
+  #     context: .
+  #     dockerfile: ./apps/web-public/Dockerfile
+  #   ports:
+  #     - "3000:3000"
+  #   depends_on:
+  #     - api-gateway
+
+volumes:
+  postgres_data:
+  mongodb_data:
+  redis_data:
+  minio_data:
+  prometheus_data:
+  grafana_data:
+
+networks:
+  default:
+    name: beie-dev-network
