@@ -1,27 +1,21 @@
 {
-  "name": "nextjs-template",
-  "version": "0.1.0",
+  "name": "beie-nexus",
+  "version": "1.0.0",
   "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "lint": "eslint",
-    "typecheck": "tsc --noEmit"
-  },
-  "dependencies": {
-    "next": "^16.1.3",
-    "react": "^19.2.3",
-    "react-dom": "^19.2.3"
+    "dev": "bun run --filter=@beie/web-public dev",
+    "build": "bun run build:ui && bun run --filter=@beie/web-public build",
+    "build:ui": "bun run --filter=@beie/ui build",
+    "lint": "bun run --filter=* lint",
+    "typecheck": "bun run --filter=* typecheck",
+    "install:all": "bun install"
   },
   "devDependencies": {
     "typescript": "^5.9.3",
-    "@types/node": "^24.10.2",
-    "@types/react": "^19.2.7",
-    "@types/react-dom": "^19.2.3",
-    "@tailwindcss/postcss": "^4.1.17",
-    "tailwindcss": "^4.1.17",
-    "eslint": "^9.39.1",
-    "eslint-config-next": "^16.0.0"
+    "eslint": "^9.39.1"
   }
 }
